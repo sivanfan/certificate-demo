@@ -1,0 +1,331 @@
+package com.ule.cerservice.controller;
+
+import com.alibaba.fastjson.JSON;
+import com.ule.cerservice.config.Config;
+import com.ule.cerservice.model.CertificateInfo;
+import com.ule.cerservice.model.PageResponse;
+import com.ule.cerservice.service.CerManagerService;
+import com.ule.cerservice.utils.CerUtil;
+import com.ule.cerservice.utils.ConvertUtil;
+import com.ule.cerservice.utils.ShellUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+import javax.servlet.http.HttpServletRequest;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * @Author fanxunli
+ * @Description: UI界面接口提供类
+ * @Param:
+ * @Return:
+ * @Create: 19-1-10 下午5:46
+ */
+@RestController
+@RequestMapping(value = "/cermanager")
+public class CreManagerController {
+    private final static Logger logger = LoggerFactory.getLogger(CreManagerController.class);
+
+    @Autowired
+    private Config config;
+    @Autowired
+    private CerManagerService cerManagerService;
+
+    @RequestMapping(value = "/getCerInfo")
+    public String getCerInfo(HttpServletRequest request) {
+        String busiName=request.getParameter("busiName");
+        String sysName=request.getParameter("sysName");
+        String cerSendType=request.getParameter("cerSendType");
+        String cerType=request.getParameter("cerType");
+        String channelCode=request.getParameter("channelCode");
+        String cerEnv=request.getParameter("cerEnv");
+
+        CertificateInfo info=new CertificateInfo();
+        info.setBusiName(busiName);
+        info.setSysName(sysName);
+        info.setCerSendType(Integer.parseInt(cerSendType));
+        info.setCerEnv(Integer.parseInt(cerEnv));
+
+        if (cerSendType!=null&&"1".equals(cerSendType)){
+            info.setCerType(Integer.parseInt(cerType));
+        }
+        if (cerSendType!=null&&"2".equals(cerSendType)){
+            info.setChannelCode(channelCode);
+        }
+        PageResponse infolist= cerManagerService.findAllCerInfo(info,0);
+        if (infolist.getResultData().size()>0){
+            return ((CertificateInfo)infolist.getResultData().get(0)).getCerContent();
+        }else {
+            return "nocer";
+        }
+    }
+    /*
+     * @description  证书查询接口
+     * @author fanxunli
+     * @date
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/query")
+    public String queryCerInfo(HttpServletRequest request) {
+        String searchval=request.getParameter("searchval");
+        String cersendtype=request.getParameter("cersendtype");
+        String pagenum=request.getParameter("pagenum");
+        CertificateInfo info=new CertificateInfo();
+        if (searchval!=null&&!"".equals(searchval)){
+            info.setSysName(searchval);
+        }
+        if (cersendtype!=null&&!"".equals(cersendtype)){
+            info.setCerSendType(new Integer(cersendtype));
+        }
+        PageResponse response= cerManagerService.findAllCerInfo(info,Integer.parseInt(pagenum));
+        return JSON.toJSONString(response);
+    }
+    /*
+     * @description  内部证书颁发接口
+     * @author fanxunli
+     * @date
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/createCer")
+    public String createCer(HttpServletRequest request) {
+        String msg=request.getParameter("msg");
+        logger.info("接收到的内部证书创建指令为："+msg);
+        if (msg!=null && !"".equals(msg)){
+            List<CertificateInfo> list=new ArrayList<>();
+            CertificateInfo info= JSON.parseObject(msg,CertificateInfo.class);
+            String cername=(info.getBusiName()+"_"+info.getSysName()+"_"+info.getChannelCode()).replace(" ", "");
+            String storePath=config.getCerStorePath();
+            FileInputStream fis=null;
+            try {
+                isFilePathExist(storePath);
+                int result =createCer(cername,info.getCerPassword(),storePath,info.getEmail(),config.getExpirationDay()+"");
+                if (result!=0){
+                    logger.info("========================Fail to create cerFiles.");
+                    return "fail";
+                }
+                //shell脚本执行完成，证书文件已经生成，开始把数据存入数据库
+                //cer文件存入mysql
+                File cerFile = new File(storePath+File.separator+cername+"-pub.cer");    //Test1-Test1+ule-pub.cer
+                fis = new FileInputStream( cerFile );
+                byte[] bytes = new byte[fis.available()];
+                fis.read(bytes);
+                String cer_Str = ConvertUtil.byte2hex( bytes );
+                //String cer_Str = "122222222223232332222222222222222222222";
+                CertificateInfo cer_pub=new CertificateInfo();
+                cer_pub.setBusiName(info.getBusiName());
+                cer_pub.setSysName(info.getSysName());
+                cer_pub.setCerSendType(1);
+                cer_pub.setCerType(1);
+                cer_pub.setChannelCode("ule");
+                cer_pub.setExpirationDate(info.getExpirationDate());
+                cer_pub.setEmail(info.getEmail());
+                cer_pub.setCerName(storePath+File.separator+cername+"-pub.cer");
+                cer_pub.setDownPassword(info.getDownPassword());
+                cer_pub.setCerEnv(info.getCerEnv());
+                cer_pub.setCerContent(cer_Str);
+
+                //pfx文件存入mysql
+                File pfxFile = new File(storePath+File.separator+cername+".pfx");    //Test1-Test1+ule-pub.cer
+                fis = new FileInputStream( pfxFile );
+                byte[] bytes1 = new byte[fis.available()];
+                fis.read(bytes1);
+                fis.close();
+                String pfx_Str = ConvertUtil.byte2hex( bytes1 );
+                //String pfx_Str = "122222222223232332222222222222222222222";
+                CertificateInfo cer_pfx=new CertificateInfo();
+                cer_pfx.setBusiName(info.getBusiName());
+                cer_pfx.setSysName(info.getSysName());
+                cer_pfx.setCerSendType(1);
+                cer_pfx.setCerType(3);
+                cer_pfx.setExpirationDate(info.getExpirationDate());
+                cer_pfx.setEmail(info.getEmail());
+                cer_pfx.setChannelCode("ule");
+                cer_pfx.setCerName(storePath+File.separator+cername+".pfx");
+                cer_pfx.setDownPassword(info.getDownPassword());
+                cer_pfx.setCerEnv(info.getCerEnv());
+                cer_pfx.setCerContent(pfx_Str);
+                list.add(cer_pub);
+                list.add(cer_pfx);
+                cerManagerService.saveCzbankPay(list);
+                return "success";
+            }catch (Exception e){
+                e.printStackTrace();
+                logger.error("====saveUploadCer",e);
+                return "fail";
+            }finally {
+                try {
+                    deleteDir(new File(storePath));
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    logger.error("====saveUploadCer",e);
+                }
+            }
+        }else{
+            return "接收到的内部证书创建内容为空";
+        }
+    }
+    @RequestMapping(value = "/shell")
+    @ResponseBody
+    public int shell(HttpServletRequest request) {
+        String command=request.getParameter("command");
+        try {
+            return ShellUtil.runShell(command);
+        }catch (Exception e){
+            logger.error("====shell",e);
+        }
+
+        return 0;
+    }
+    /*
+     * @description  删除证书接口
+     * @author fanxunli
+     * @date
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/delCer")
+    public String delCer(HttpServletRequest request) {
+        String id=request.getParameter("id");
+        //LDAPUtil.getInstance().deleteEntry("uid="+uid+",dc=ule,dc=com");
+        cerManagerService.del(new Integer(id));
+        return "success";
+    }
+
+
+    /*
+     * @description 外部证书上传接口
+     * @author fanxunli
+     * @date
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/saveUploadCer")
+    public String saveUploadCer(HttpServletRequest request) {
+        String msg=request.getParameter("msg");
+        logger.info("接收到的外部证书上传指令为："+msg);
+        if (msg!=null && !"".equals(msg)){
+            List<CertificateInfo> list=new ArrayList<>();
+            CertificateInfo info=JSON.parseObject(msg,CertificateInfo.class);
+            String cername=(info.getBusiName()+"-"+info.getSysName()+"-"+info.getChannelCode()).replace(" ", "");
+            String storePath=config.getCerStorePath();
+
+            OutputStream o=null;
+            InputStream in=null;
+            try {
+                isFilePathExist(storePath);
+                String fileName="";
+                //先把外部上传的证书文件保存
+                if(info.getCerOutType()==1){
+                    String 	cer_out_filename=info.getCerOutFilename();
+                    String[] strArray = cer_out_filename.split("\\.");
+                    int suffixIndex = strArray.length -1;
+                    fileName=storePath+File.separator+cername+"-pub."+strArray[suffixIndex];
+                }else{
+                    fileName=storePath+File.separator+cername+"-pub.txt";
+                }
+                o = new FileOutputStream(fileName);
+                byte[] imgByte = ConvertUtil.hex2byte(info.getCerContent());
+                in = new ByteArrayInputStream( imgByte );
+                byte[] b = new byte[1024];
+                int nRead = 0;
+                while( ( nRead = in.read(b) ) != -1 ){
+                    o.write( b, 0, nRead );
+                }
+                o.flush();
+
+                CertificateInfo cer=new CertificateInfo();
+                cer.setBusiName(info.getBusiName());
+                cer.setSysName(info.getSysName());
+                cer.setCerSendType(2);
+                cer.setCerType(1);
+                if(info.getCerOutType()==1){
+                    Map cerInfoMap=CerUtil.getCerInfo(fileName);
+                    cer.setExpirationDate(cerInfoMap.get("NotAfter")==null?"":cerInfoMap.get("NotAfter").toString());
+                }
+                cer.setEmail(info.getEmail());
+                cer.setChannelCode(info.getChannelCode());
+                cer.setCerName(fileName);
+                cer.setDownPassword(info.getDownPassword());
+                cer.setCerEnv(info.getCerEnv());
+                cer.setCerContent(info.getCerContent());
+                cer.setCerOutType(info.getCerOutType());
+                cer.setCerOutFilename(info.getCerOutFilename());
+
+                list.add(cer);
+                cerManagerService.saveCzbankPay(list);
+                return "success";
+            }catch (Exception e){
+                e.printStackTrace();
+                logger.error("====saveUploadCer",e);
+            }finally {
+                try {
+                    deleteDir(new File(storePath));
+                    o.close();
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    logger.error("====saveUploadCer",e);
+                }
+            }
+            return "fail";
+        }else{
+            return "接收到的外部证书上传内容为空";
+        }
+    }
+
+
+    private static void isFilePathExist(String dirPath) {
+        File file = new File(dirPath);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+    }
+    /**
+     * 递归删除目录下的所有文件及子目录下所有文件
+     * @param dir 将要删除的文件目录
+     * @return boolean Returns "true" if all deletions were successful.
+     *                 If a deletion fails, the method stops attempting to
+     *                 delete and returns "false".
+     */
+    private static boolean deleteDir(File dir) {
+        if (dir.isDirectory()) {
+            String[] children = dir.list();
+            //递归删除目录中的子目录下
+            for (int i=0; i<children.length; i++) {
+                boolean success = deleteDir(new File(dir, children[i]));
+                if (!success) {
+                    return false;
+                }
+            }
+        }
+        // 目录此时为空，可以删除
+        return dir.delete();
+    }
+
+    private int createCer(String cerName,String cerPassword,String cerStorePath,String email,String expirationDay){
+        try {
+            logger.info("-------开始生成私钥-------");
+            String command1 = String.format("openssl genrsa -des3 -passout pass:%s -out  %s/%s-pri.key 1024", cerPassword, cerStorePath, cerName);
+            String command2 = String.format("openssl  req -new -x509 -passin pass:%s -key  %s/%s-pri.key -days %s -out %s/%s-pub.cer -subj \"/C=CN/ST=SH/L=SH/O=ULE/OU=ULE/CN=ULE/emailAddress=%s\"", cerPassword, cerStorePath, cerName,expirationDay, cerStorePath, cerName,email);
+            String command3 = String.format("openssl pkcs12 -passin pass:%s  -passout pass:%s  -export -name ulepfx -in %s/%s-pub.cer  -inkey %s/%s-pri.key -out %s/%s.pfx", cerPassword, cerPassword, cerStorePath, cerName, cerStorePath, cerName, cerStorePath, cerName);
+
+            StringBuffer command=new StringBuffer();
+            command.append(command1).append(" && ").append(command2).append(" && ").append(command3);
+            logger.info("执行的shell命令为：" + command.toString());
+            int result = ShellUtil.runShell(command.toString());
+            logger.info("-------PFX文件合成完成----");
+            return result;
+        }catch (Exception e){
+            e.printStackTrace();
+            logger.error("====createCer",e);
+        }
+        return 0;
+    }
+
+}
+

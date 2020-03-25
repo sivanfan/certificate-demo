@@ -1,0 +1,306 @@
+package com.ule.cermanager.controller;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.ule.cermanager.model.CertificateInfo;
+import com.ule.cermanager.utils.DateUtil;
+import com.ule.cermanager.utils.ProjectInfoUtil;
+import com.ule.cermanager.utils.UnirestUtil;
+import com.mashape.unirest.http.HttpResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.ule.cermanager.utils.ConvertUtil;
+
+/**
+ * @Author fanxunli
+ * @Description:
+ * @Param:
+ * @Return:
+ * @Create: 19-1-10 下午5:46
+ */
+@Controller
+@RequestMapping(value = "/cermanager")
+public class CerManagerController {
+    private final static Logger logger = LoggerFactory.getLogger(CerManagerController.class);
+
+    @Value("${expirationDay}")
+    private String expirationDay;
+
+    @Value("${serviceUrl}")
+    private String serviceUrl;
+
+    @Value("${projectInfoUrl}")
+    private String projectInfoUrl;
+    /*
+     * @description 查询列表
+     * @author fanxunli
+     * @date
+     * @param model
+     * @param request
+     * @return java.lang.String
+     */
+    @RequestMapping({"/query","/",""})
+    public String queryCerInfo(Model model,HttpServletRequest request) {
+        String searchval=request.getParameter("searchval");
+        String cersendtype=request.getParameter("cersendtype")==null?"1":request.getParameter("cersendtype");
+        String pagenum=request.getParameter("pagenum")==null?"1":request.getParameter("pagenum");
+        Map queryMap=new HashMap();
+        queryMap.put("searchval",searchval);
+        queryMap.put("cersendtype",cersendtype);
+        queryMap.put("pagenum",pagenum);
+        HttpResponse<String> response= UnirestUtil.post(serviceUrl+"/cermanager/query",queryMap);
+        logger.info("查询结果："+response.getBody());
+        JSONObject jsonObject = JSON.parseObject(response.getBody());
+        String list=jsonObject.getString("resultData");
+        List<CertificateInfo> infolist= JSON.parseArray(list,CertificateInfo.class);
+
+        model.addAttribute("searchval",searchval);
+        model.addAttribute("infolist",infolist);
+        model.addAttribute("currentPage",pagenum);
+        model.addAttribute("totalPages",jsonObject.getString("pages"));
+        model.addAttribute("cersendtype",cersendtype);
+        if("1".equals(cersendtype)){
+            model.addAttribute("menuid",1);
+        }else {
+            model.addAttribute("menuid",2);
+        }
+        return "list";
+    }
+    /*
+     * @description 证书生成
+     * @author fanxunli
+     * @date
+         * @param model
+     * @param request
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/createCer")
+    public String createCer(Model model,HttpServletRequest request) {
+        model.addAttribute("menuid",3);
+        Map projectInfo=ProjectInfoUtil.getProjectInfoMap(projectInfoUrl);
+        model.addAttribute("projectInfo",projectInfo);
+        return "createCer";
+    }
+    /*
+     * @description  证书生成保存
+     * @author fanxunli
+     * @date
+         * @param model
+     * @param request
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/saveCer")
+    public String saveCer(Model model,HttpServletRequest request) {
+        String busiName=request.getParameter("busiName");
+        String sysName=request.getParameter("sysName");
+        String downPassword=request.getParameter("downPassword");
+        String cerPassword=request.getParameter("cerPassword");
+        String email=request.getParameter("email");
+        String cer_env=request.getParameter("cer_env");
+
+        Map queryMap1=new HashMap();
+        queryMap1.put("busiName",busiName);
+        queryMap1.put("sysName",sysName);
+        queryMap1.put("cerType",3);
+        queryMap1.put("cerSendType",1);
+        queryMap1.put("cerEnv",cer_env);
+
+        HttpResponse<String> response1= UnirestUtil.post(serviceUrl+"/cermanager/getCerInfo",queryMap1);
+        if(!"nocer".equals(response1.getBody())) {
+            model.addAttribute("errormsg","该系统的证书已经存在");
+            model.addAttribute("menuid",1);
+            return "/error/error";
+        }
+        CertificateInfo info=new CertificateInfo();
+        info.setBusiName(busiName);
+        info.setSysName(sysName);
+        info.setCerSendType(1);
+        info.setChannelCode("ule");
+        info.setDownPassword(downPassword);
+        info.setCerPassword(cerPassword);
+        info.setEmail(email);
+        info.setExpirationDate(DateUtil.plusDay2(Integer.parseInt(expirationDay)));
+        info.setCerEnv(Integer.parseInt(cer_env));
+        logger.info("************************************************************************************************************");
+        logger.info(JSON.toJSONString(info));
+        //把请求内容传给cer-service系统
+        Map queryMap=new HashMap();
+        queryMap.put("msg",JSON.toJSONString(info));
+        HttpResponse<String> response= UnirestUtil.post(serviceUrl+"/cermanager/createCer",queryMap);
+        if ("success".equals(response.getBody())){
+            model.addAttribute("menuid",1);
+            return "redirect:/cermanager/query?cersendtype=1";
+        }else{
+            model.addAttribute("menuid",1);
+            model.addAttribute("errormsg","系统错误，请联系管理员！");
+            return "/error/error";
+        }
+    }
+    /*
+     * @description  证书上传
+     * @author fanxunli
+     * @date
+         * @param model
+     * @param request
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/uploadCer")
+    public String uploadCer(Model model,HttpServletRequest request) {
+        model.addAttribute("menuid",4);
+        Map projectInfo=ProjectInfoUtil.getProjectInfoMap(projectInfoUrl);
+        model.addAttribute("projectInfo",projectInfo);
+        return "uploadCer";
+    }
+    /*
+     * @description  证书上传保存
+     * @author fanxunli
+     * @date
+         * @param model
+     * @param request
+     * @param cerfile
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/saveUploadCer")
+    public String saveUploadCer(Model model,HttpServletRequest request,@RequestParam("cerfile") MultipartFile cerfile) {
+        String busiName=request.getParameter("busiName");
+        String sysName=request.getParameter("sysName");
+        String downPassword=request.getParameter("downPassword");
+        String channelCode=request.getParameter("channelCode");
+        //String expirationDate=request.getParameter("expirationDate");
+        String cer_env=request.getParameter("cer_env");
+
+        String email=request.getParameter("email");
+        String cerOutType=request.getParameter("certype");
+
+        Map queryMap1=new HashMap();
+        queryMap1.put("busiName",busiName);
+        queryMap1.put("sysName",sysName);
+        queryMap1.put("cerType",1);
+        queryMap1.put("cerSendType",2);
+        queryMap1.put("cerEnv",cer_env);
+        queryMap1.put("channelCode",channelCode);
+
+        HttpResponse<String> response1= UnirestUtil.post(serviceUrl+"/cermanager/getCerInfo",queryMap1);
+        if(!"nocer".equals(response1.getBody())) {
+            model.addAttribute("errormsg","该系统的证书已经存在");
+            model.addAttribute("menuid",1);
+            return "/error/error";
+        }
+
+        String cercontent="";
+        if ("1".equals(cerOutType)){
+            logger.info("fileName："+cerfile.getOriginalFilename());
+            InputStream is=null;
+            try {
+                is=cerfile.getInputStream();
+
+                //获取输入流 CommonsMultipartFile 中可以直接得到文件的流
+                byte[] bytes = new byte[is.available()];
+                is.read(bytes);
+
+                // 生成字符串
+                cercontent = ConvertUtil.byte2hex( bytes );
+            } catch (Exception e) {
+                e.printStackTrace();
+            }finally {
+                try {
+                    is.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        if ("2".equals(cerOutType)){
+            String cerString=request.getParameter("cerString");
+            cercontent = ConvertUtil.byte2hex( cerString.getBytes() );
+        }
+
+        CertificateInfo info=new CertificateInfo();
+        info.setBusiName(busiName);
+        info.setSysName(sysName);
+        info.setCerSendType(2);
+        info.setCerType(1);
+        info.setChannelCode(channelCode);
+        info.setDownPassword(downPassword);
+        info.setCerPassword("");
+        info.setEmail(email);
+        //info.setExpirationDate(expirationDate);
+        info.setCerContent(cercontent);
+        info.setCerOutType(new Integer(cerOutType));
+        info.setCerOutFilename(cerfile.getOriginalFilename());
+        info.setCerEnv(Integer.parseInt(cer_env));
+        logger.info("************************************************************************************************************");
+        logger.info(JSON.toJSONString(info));
+
+        //把请求内容传给cer-service系统
+        Map queryMap=new HashMap();
+        queryMap.put("msg",JSON.toJSONString(info));
+        HttpResponse<String> response= UnirestUtil.post(serviceUrl+"/cermanager/saveUploadCer",queryMap);
+        if ("success".equals(response.getBody())){
+            model.addAttribute("menuid",1);
+            return "redirect:/cermanager/query?cersendtype=2";
+        }else{
+            model.addAttribute("menuid",1);
+            model.addAttribute("errormsg","系统错误，请联系管理员！");
+            return "/error/error";
+        }
+    }
+
+    /*
+     * @description  证书删除
+     * @author fanxunli
+     * @date
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/delCer")
+    public String delCer(Model model,HttpServletRequest request) {
+        String id=request.getParameter("id");
+        String cersendtype=request.getParameter("cersendtype");
+        logger.info("***********************"+id);
+        //把请求内容传给cer-service系统
+        Map queryMap=new HashMap();
+        queryMap.put("id",id);
+        HttpResponse<String> response= UnirestUtil.post(serviceUrl+"/cermanager/delCer",queryMap);
+        if ("success".equals(response.getBody())){
+            model.addAttribute("menuid",1);
+            return "redirect:/cermanager/query?cersendtype="+cersendtype;
+        }else{
+            model.addAttribute("menuid",1);
+            model.addAttribute("errormsg","系统错误，请联系管理员！");
+            return "/error/error";
+        }
+    }
+
+
+    /*
+     * @description 证书生成
+     * @author fanxunli
+     * @date
+     * @param model
+     * @param request
+     * @return java.lang.String
+     */
+    @RequestMapping(value = "/getApps")
+    @ResponseBody
+    public List<String> getApps(Model model,HttpServletRequest request) {
+        String moduleName=request.getParameter("moduleName");
+        List<String> apps=ProjectInfoUtil.getApps(moduleName);
+        return apps;
+    }
+
+}
+

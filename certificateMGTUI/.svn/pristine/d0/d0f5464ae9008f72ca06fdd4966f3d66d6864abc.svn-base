@@ -1,0 +1,28 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
+<%@ taglib prefix="sec" uri="http://www.springframework.org/security/tags"%>
+<html>
+<head>
+    <title>测试标题</title>
+</head>
+<body>
+Time: ${time}
+<br>
+Message: ${message}
+
+<sec:authorize access="hasRole('home')">
+    <p>恭喜您,您有 ROLE_HOME 权限写法</p>
+</sec:authorize>
+
+<sec:authorize access="hasRole('hello')">
+    <p>恭喜您,您有 ROLE_HELLO 权限写法</p>
+</sec:authorize>
+
+<sec:authorize access="hasRole('admin')">
+    <p>恭喜您,您有 ROLE_ADMIN 权限写法</p>
+</sec:authorize>
+<img src="${ctx}/static/images/plus.png">
+
+</body>
+</html>

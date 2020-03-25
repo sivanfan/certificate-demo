@@ -1,0 +1,30 @@
+package com.ule.cerclient;
+
+public class Test {
+
+	public static void main(String[] args) throws Exception{
+	    //获取第三方提供的外部证书文件
+        //byte[] cer=CerSignClient.getOutsideCerFile("security","certificate-http-service","eppay",1);
+		byte[] cer=CerSignClient.getInsideCerFile("security","certificate-http-service",1,1);
+        //获取邮乐颁发的内部证书文件
+        byte[] pfx=CerSignClient.getInsideCerFile("security","certificate-http-service",3,1);
+
+        String originData = "Hello World";
+		System.out.println("========> originData："+originData);
+		System.out.println("========> 加密开始");
+
+		// 加密
+		String enData = CerSignClient.encryptContent(originData,cer);
+		System.out.println("========> 加密 enData:" + enData);
+		String deData = CerSignClient.decryptContent(enData,pfx,"123456");
+		System.out.println("========> 解密 deData:" + deData);
+
+		// 加签
+		String signData = CerSignClient.sign(originData,pfx,"123456");
+		System.out.println("========> 加签 signData:" + signData);
+		boolean verifySign = CerSignClient.verifySign(originData, signData,cer);
+		System.out.println("========> 验签 verifySign:" + verifySign);
+        // 摘要
+        System.out.println("========> MD5摘要:" + CerSignClient.MD5(originData));
+	}
+}

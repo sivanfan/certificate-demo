@@ -1,0 +1,25 @@
+server:
+  #端口号
+  port: 8091
+  #项目名，如果不设定，默认是 /
+  servlet:
+    context-path: /certificateMGTUI
+  tomcat:
+      uri-encoding: UTF-8
+#spring相关配置
+spring:
+  mvc:
+    view:
+      # 页面默认前缀目录
+      prefix: /WEB-INF/jsp/
+      # 响应页面默认后缀
+      suffix: .jsp
+  application:
+    name: certificateMGTUI
+
+
+projectInfoUrl: http://gr.uletm.com/sam/api/all
+#访问service服务的地址
+serviceUrl: http://security.http.prd.uledns.com/certificate-http-service
+#证书有效期，单位天
+expirationDay: 3650

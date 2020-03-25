@@ -1,0 +1,97 @@
+package com.ule.cerclient;
+
+
+import com.ule.cerclient.service.CerSignService;
+import com.ule.cerclient.service.impl.CerSignServiceImpl;
+import com.ule.cerclient.utils.CertificateUtils;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+
+/**
+ * @Author fanxl
+ * @Description 证书工具包主入口
+ * @Date 11:34 2019/1/18
+ **/
+public class CerSignClient {
+	private static Logger log = LogManager.getLogger(CerSignClient.class);
+	private static CerSignService cerSignService = new CerSignServiceImpl();
+	/*
+	 * @Author fanxl
+	 * @Description 获取内部颁发的证书
+	 * @Date 13:43 2019/1/18
+	 * @Param [busiName, sysName, cerType]
+	 * @return byte[]
+	 **/
+	public static byte[] getInsideCerFile(String busiName,String sysName,int cerType,int cerEnv){
+		return cerSignService.getInsideCerFile(busiName,sysName,cerType,cerEnv);
+	}
+	/*
+	 * @Author fanxl
+	 * @Description 获取外部颁发的证书
+	 * @Date 13:43 2019/1/18
+	 * @Param [busiName, sysName, channelCode]
+	 * @return byte[]
+	 **/
+	public static byte[] getOutsideCerFile(String busiName,String sysName,String channelCode,int cerEnv){
+		return cerSignService.getOutsideCerFile(busiName,sysName,channelCode,cerEnv);
+	}
+	/*
+	 * @Author fanxl
+	 * @Description 加密
+	 * @Date 13:34 2019/1/18
+	 * @Param [busiName, sysName, channelCode]
+	 * @return java.lang.String
+	 **/
+	public static String encryptContent(String requestStr,byte[] cerContent) throws Exception{
+		return CertificateUtils.encryptContentBytes(requestStr,cerContent);
+	}
+	public static String encryptContent(String requestStr,String cerPath) throws Exception{
+		byte[] cer=CertificateUtils.getContent(cerPath);
+		return encryptContent(requestStr,cer);
+	}
+	/*
+	 * @Author fanxl
+	 * @Description 解密
+	 * @Date 13:38 2019/1/18
+	 * @Param [responseData, cerContent]
+	 * @return java.lang.String
+	 **/
+	public static String decryptContent(String responseData,byte[] pfxContent,String cerPassword) throws Exception{
+		return CertificateUtils.decryptContentBytes(responseData,pfxContent,cerPassword);
+	}
+	public static String decryptContent(String responseData,String pfxPath,String cerPassword) throws Exception{
+		byte[] pfx=CertificateUtils.getContent(pfxPath);
+		return decryptContent(responseData,pfx,cerPassword);
+	}
+	/*
+	 * @Author fanxl
+	 * @Description 加签
+	 * @Date 13:39 2019/1/18
+	 * @Param [signData, cerContent]
+	 * @return java.lang.String
+	 **/
+	public static String sign(String signData,byte[] pfxContent,String cerPassword)  throws Exception{
+		return CertificateUtils.sign(signData,pfxContent,cerPassword);
+	}
+	/*
+	 * @Author fanxl
+	 * @Description 验签
+	 * @Date 13:41 2019/1/18
+	 * @Param [originData, returnSignData, cerContent]
+	 * @return java.lang.Boolean
+	 **/
+	public static Boolean verifySign(String originData, String returnSignData,byte[] cerContent) throws Exception{
+		return CertificateUtils.verifySign2(originData,returnSignData,cerContent);
+	}
+
+	/*
+	 * @Author fanxl
+	 * @Description 摘要算法
+	 * @Date 13:42 2019/1/18
+	 * @Param [originData]
+	 * @return java.lang.String
+	 **/
+	public static String MD5(String originData){
+		return CertificateUtils.MD5(originData);
+	}
+}

@@ -1,0 +1,9 @@
+#data Source
+jdbc.ule_certificate-master.url=jdbc:mysql://172.25.201.211:3306/ule_certificate?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
+jdbc.ule_certificate-master.username=uleapp_certificate
+jdbc.ule_certificate-master.initialSize=5
+jdbc.ule_certificate-master.password=ule.123
+jdbc.ule_certificate-master.maxActive=20
+jdbc.ule_certificate-master.minIdle=5
+jdbc.ule_certificate-master.maxWait=60000
+jdbc.ule_certificate-master.validationQuery=SELECT 1 FROM DUAL

@@ -1,0 +1,68 @@
+server:
+  #端口号
+  port: 8866
+  #项目名，如果不设定，默认是 /
+  servlet:
+    context-path: /certificate-http-service
+  tomcat:
+      uri-encoding: UTF-8
+#spring相关配置
+spring:
+  application:
+    name: certificate-http-service
+  datasource:
+      druid:
+        db-type: com.alibaba.druid.pool.DruidDataSource
+        name: test
+        url: jdbc:mysql://localhost:3306/cermanager?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
+        username: root
+        password: YRbCET4hOTCaqKfAARp5QusCxJneKAy5P6HR0RX06KZuwg8sHVEzUlVFj9n06o9C4w6Ztb0r4o+yeTLpFShd/A==
+        # 使用druid数据源
+        driver-class-name: com.mysql.jdbc.Driver
+        filter:
+          config:
+            enabled: true
+        #break-after-acquire-failure: true
+        #数据库密码加密 上面的filter。config节点开启 连接属性加入config.decrypt=true,加密并注入publicKey
+        connectionProperties: clientEncoding=UTF-8;config.decrypt=true;config.decrypt.key=${public-key}
+        maxActive: 20
+        initialSize: 10
+        maxWait: 60000
+        minIdle: 5
+        timeBetweenEvictionRunsMillis: 60000
+        minEvictableIdleTimeMillis: 300000
+        validationQuery: SELECT 1 FROM DUAL
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        poolPreparedStatements: true
+        maxOpenPreparedStatements: 20
+
+#mybatis配置
+mybatis:
+  typeAliasesPackage: com.ule.cerservice.model
+  mapperLocations: classpath:mapper/*.xml
+  configuration:
+    jdbc-type-for-null: 'null'
+
+pagehelper:
+    helperDialect: mysql
+    #启用合理化时，如果pageNum<1会查询第一页，如果pageNum>pages会查询最后一页
+    #<!-- 禁用合理化时，如果pageNum<1或pageNum>pages会返回空数据
+    reasonable: false
+    #支持通过Mapper接口参数来传递分页参数
+    supportMethodsArguments: true
+    # 自定义参数名
+    #params: count=countSql;pageNum=start;pageSize=limit;
+    #always总是返回PageInfo类型,check检查返回类型是否为PageInfo,none返回Page
+    returnPageInfo: check
+#tk.mybatis 通用maper配置
+mapper:
+  not-empty: false
+  identity: MYSQL
+  mappers:
+      - com.ule.cerservice.common.BaseMapper
+  before: true
+
+#driud连接池公钥
+public-key: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAISv6fCIwhChPywdi65FeL88bvYMvKwRI7GItGKLz88Q2n070jW3OT24k4DQsiaIO/pmMdM/LTrZWcT/ngcB6PMCAwEAAQ==

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ule.cerservice.mapper.CerManagerMapper">
+    <resultMap id="BaseResultMap" type="com.ule.cerservice.model.CertificateInfo">
+        <result column="ID" property="id" jdbcType="INTEGER" />
+        <result column="BUSI_NAME" property="busiName" jdbcType="VARCHAR" />
+        <result column="SYS_NAME" property="sysName" jdbcType="VARCHAR" />
+        <result column="CER_SEND_TYPE" property="cerSendType" jdbcType="INTEGER" />
+        <result column="CER_TYPE" property="cerType" jdbcType="INTEGER" />
+        <result column="CHANNEL_CODE" property="channelCode" jdbcType="VARCHAR" />
+        <result column="DOWN_PASSWORD" property="downPassword" jdbcType="VARCHAR" />
+        <result column="EXPIRATION_DATE" property="expirationDate" jdbcType="VARCHAR" />
+        <result column="EMAIL" property="email" jdbcType="VARCHAR" />
+        <result column="CER_CONTENT" property="cerContent" jdbcType="CLOB" />
+        <result column="CER_OUT_TYPE" property="cerOutType" jdbcType="VARCHAR" />
+        <result column="CER_OUT_FILENAME" property="cerOutFilename" jdbcType="VARCHAR" />
+        <result column="CER_ENV" property="cerEnv" jdbcType="INTEGER" />
+        <result column="CER_NAME" property="cerName" jdbcType="VARCHAR" />
+        <result column="REMARK" property="remark" jdbcType="VARCHAR" />
+    </resultMap>
+</mapper>
